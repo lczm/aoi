@@ -78,6 +78,11 @@ class Lexer():
             print("#", i, " | ", token.type, token.literal)
         return None
 
+class Data():
+    def __init__(self, name:str, format_string:str):
+        self.name:str = name
+        self.format_string:str = format_string
+
 class Ast():
     pass
 
@@ -165,29 +170,54 @@ def emit_data(name:str, data:str) -> None:
 def emit_binary(left, right, operator) -> None:
     return None
 
+# prefix all format strings with aoi_format_string so that
+# its clearer
+def build_string_name(name:str="aoi_format_string") -> Data:
+    if name not in g.string_builders:
+        g.string_builders[name] = 0
+    else:
+        g.string_builders[name] += 1
+
+    return name + str(g.string_builders[name])
+
+def build_data(name:str, format_string:str) -> Data:
+    # TODO: this only supports numbers
+    split_len = len(format_string.split("%"))
+    num_format_str = ""
+    for i in range(split_len - 1):
+        if i == 0:
+            num_format_str += "%d"
+        else:
+            num_format_str += " %d"
+    output_format_str = f"b \"{num_format_str}\\n\", b 0"
+    return Data(name, output_format_str)
+
 # Just emit directly to g.ir
 def emit_asts(asts:List[Ast]):
     # For now, just wrap everything in one main function
-
-    emit_data("builder1", "b \"%d\\n\", b 0")
     # functions don't exist as of now
-
     emit_empty_line()
     emit_function("main", Integer.w)
     emit_string("{")
 
     emit_start()
-
     for ast in asts:
         if type(ast) == AstBinary:
             if ast.operator == "+":
+                format_string = build_string_name()
                 emit_string(f"%x =w add {ast.left.number}, {ast.right.number}")
-                emit_string("call $printf(l $builder1, w %x)")
-
+                emit_string(f"call $printf(l ${format_string}, w %x)")
+                g.data.append(build_data(format_string, "w %x"))
     emit_end()
 
     emit_string("ret 0")
     emit_string("}")
+
+    emit_empty_line()
+    # Hardcode the bytes part of the data for now
+    for data in g.data:
+        emit_data(data.name, data.format_string)
+
     return None
 
 def export_main() -> None:
@@ -216,7 +246,7 @@ def main() -> None:
     return None
 
 if __name__ == '__main__':
-    sample_text: str = """5 + 2"""
+    sample_text: str = """5 + 8"""
 
     lexer: Lexer = Lexer(sample_text)
     lexer.lex()
