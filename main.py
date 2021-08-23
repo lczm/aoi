@@ -1,5 +1,6 @@
 import g
 import os
+import unittest
 
 from enum   import Enum
 from typing import List, Set, Dict
@@ -112,7 +113,8 @@ class Parser():
 
     def comparison(self) -> Ast:
         expr = self.atomic()
-        if self.tokens[self.count].type == PLUS:
+        # Just check for both since they are on the same level of precedence
+        if self.tokens[self.count].type == PLUS or self.tokens[self.count].type == MINUS:
             self.count+=1
             right = self.atomic()
             # TODO fix in future : quick hack: -2, cause self.count+=1 and self.atomic() is an addition
@@ -208,6 +210,11 @@ def emit_asts(asts:List[Ast]):
                 emit_string(f"%x =w add {ast.left.number}, {ast.right.number}")
                 emit_string(f"call $printf(l ${format_string}, w %x)")
                 g.data.append(build_data(format_string, "w %x"))
+            elif ast.operator == "-":
+                format_string = build_string_name()
+                emit_string(f"%x =w sub {ast.left.number}, {ast.right.number}")
+                emit_string(f"call $printf(l ${format_string}, w %x)")
+                g.data.append(build_data(format_string, "w %x"))
     emit_end()
 
     emit_string("ret 0")
@@ -245,8 +252,39 @@ def main() -> None:
     print(g.ir)
     return None
 
+class TestLexer(unittest.TestCase):
+    def test_lexer(self):
+        sample:str = "1 + 2"
+        lexer: Lexer = Lexer(sample)
+        lexer.lex()
+
+        self.assertEqual(len(lexer.tokens), 3)
+        self.assertEqual(lexer.tokens[0].type, NUMBER)
+        self.assertEqual(lexer.tokens[0].literal,"1")
+        self.assertEqual(lexer.tokens[1].type, PLUS)
+        self.assertEqual(lexer.tokens[1].literal,"+")
+        self.assertEqual(lexer.tokens[2].type, NUMBER)
+        self.assertEqual(lexer.tokens[2].literal,"2")
+
+class TestParser(unittest.TestCase):
+    def test_parser(self):
+        sample:str = "1 + 2"
+        lexer: Lexer = Lexer(sample)
+        lexer.lex()
+        parser: Parser = Parser(lexer.tokens)
+        parser.parse()
+
+        self.assertEqual(len(parser.asts), 1)
+        self.assertEqual(type(parser.asts[0]), AstBinary)
+        self.assertEqual(parser.asts[0].left.number, "1")
+        self.assertEqual(parser.asts[0].right.number, "2")
+        self.assertEqual(parser.asts[0].operator, "+")
+
 if __name__ == '__main__':
-    sample_text: str = """5 + 8"""
+    # Run tests
+    unittest.main()
+
+    sample_text: str = """5 - 8"""
 
     lexer: Lexer = Lexer(sample_text)
     lexer.lex()
