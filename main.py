@@ -1,7 +1,9 @@
 import g
 import os
-import unittest
+import sys
+import argparse
 
+from ast    import Ast, AstBinary, AstNumber
 from enum   import Enum
 from typing import List, Set, Dict
 
@@ -83,19 +85,6 @@ class Data():
     def __init__(self, name:str, format_string:str):
         self.name:str = name
         self.format_string:str = format_string
-
-class Ast():
-    pass
-
-class AstBinary(Ast):
-    def __init__(self, left, right, operator):
-        self.left = left
-        self.right = right
-        self.operator = operator
-
-class AstNumber(Ast):
-    def __init__(self, number):
-        self.number = number
 
 class Parser():
     def __init__(self, tokens:List[Token]):
@@ -227,74 +216,22 @@ def emit_asts(asts:List[Ast]):
 
     return None
 
-def export_main() -> None:
-    # Put all constant data at the top
-    emit_data("fmt", "b \"Test!!\\n\", b 0")
-    emit_data("test", "b \"Hello There\\n\", b 0")
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print("Please input a file into the program, `python main.py file.aoi`")
+        sys.exit(-1)
 
-    emit_empty_line()
+    files = sys.argv[1:]
+    if len(files) == 1:
+        input_file = files[0]
+        lines = [line for line in open(input_file)]
 
-    emit_function("main", Integer.w)
-    emit_string("{")
-
-    emit_start()
-    emit_string("call $printf(l $fmt)")
-    emit_string("call $printf(l $test)")
-    emit_end()
-
-    emit_string("ret 0")
-    emit_string("}")
-
-    return None
-
-def main() -> None:
-    export_main()
-    print(g.ir)
-    return None
-
-class TestLexer(unittest.TestCase):
-    def test_lexer(self):
-        sample:str = "1 + 2"
-        lexer: Lexer = Lexer(sample)
+        lexer: Lexer = Lexer(''.join(map(str, lines)))
         lexer.lex()
 
-        self.assertEqual(len(lexer.tokens), 3)
-        self.assertEqual(lexer.tokens[0].type, NUMBER)
-        self.assertEqual(lexer.tokens[0].literal,"1")
-        self.assertEqual(lexer.tokens[1].type, PLUS)
-        self.assertEqual(lexer.tokens[1].literal,"+")
-        self.assertEqual(lexer.tokens[2].type, NUMBER)
-        self.assertEqual(lexer.tokens[2].literal,"2")
-
-class TestParser(unittest.TestCase):
-    def test_parser(self):
-        sample:str = "1 + 2"
-        lexer: Lexer = Lexer(sample)
-        lexer.lex()
         parser: Parser = Parser(lexer.tokens)
         parser.parse()
 
-        self.assertEqual(len(parser.asts), 1)
-        self.assertEqual(type(parser.asts[0]), AstBinary)
-        self.assertEqual(parser.asts[0].left.number, "1")
-        self.assertEqual(parser.asts[0].right.number, "2")
-        self.assertEqual(parser.asts[0].operator, "+")
+        emit_asts(parser.asts)
+        print(g.ir)
 
-if __name__ == '__main__':
-    # Run tests
-    unittest.main()
-
-    sample_text: str = """5 - 8"""
-
-    lexer: Lexer = Lexer(sample_text)
-    lexer.lex()
-    # lexer.pretty_print()
-
-    parser: Parser = Parser(lexer.tokens)
-    parser.parse()
-
-    emit_asts(parser.asts)
-    print(g.ir)
-
-    # Placeholder
-    # main()
